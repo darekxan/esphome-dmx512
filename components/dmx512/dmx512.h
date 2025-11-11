@@ -54,8 +54,6 @@ class DMX512 : public Component {
  protected:
 
   esphome::uart::UARTComponent *uart_{nullptr};
-  std::vector<uint8_t> rx_buffer_;
-  uint32_t last_dmx512_transmission_{0};
   uint8_t device_values_[DMX_MSG_SIZE];
   int uart_idx_{0};
   InternalGPIOPin *tx_pin_{nullptr};

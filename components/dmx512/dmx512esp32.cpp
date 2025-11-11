@@ -9,14 +9,14 @@ namespace dmx512 {
 static const char *TAG = "dmx512";
 
 void DMX512ESP32::send_break() {
-  uint8_t num = this->tx_pin_->get_pin();
-  pinMatrixOutDetach(num, false, false);
-  pinMode(num, OUTPUT); // NOLINT
-  digitalWrite(num, LOW); // NOLINT
+  const uint8_t pin = this->tx_pin_->get_pin();
+  pinMatrixOutDetach(pin, false, false);
+  gpio_set_direction(static_cast<gpio_num_t>(pin), GPIO_MODE_OUTPUT);
+  gpio_set_level(static_cast<gpio_num_t>(pin), 0);
   delayMicroseconds(this->break_len_);
-  digitalWrite(num, HIGH); // NOLINT
+  gpio_set_level(static_cast<gpio_num_t>(pin), 1);
   delayMicroseconds(this->mab_len_);
-  pinMatrixOutAttach(num, this->uart_idx_, false, false);
+  pinMatrixOutAttach(pin, this->uart_idx_, false, false);
 }
 
 }  // namespace dmx512

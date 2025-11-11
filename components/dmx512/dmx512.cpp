@@ -7,24 +7,20 @@ namespace dmx512 {
 static const char *TAG = "dmx512";
 
 void DMX512::loop() {
-  bool update = false;
-  // this->update_ is true if something has changed
-  // Otherwise, an update needs to be triggered periodically, if the
-  // periodic update option is set
-  if(this->update_ || (((millis() - this->last_update_) > this->update_interval_) && this->periodic_update_)) {
-    // Force the refresh rate to be within the spec
-    // Flushing should not be needed (we do it anyway)
-    if((millis() - this->last_update_) > DMX_MIN_INTERVAL_MS) {
-      update = true;
+  // Cache millis() to avoid multiple system calls
+  const uint32_t now = millis();
+  const uint32_t elapsed = now - this->last_update_;
+  
+  // Check if update needed: either data changed OR periodic update is due
+  if(this->update_ || (elapsed > this->update_interval_ && this->periodic_update_)) {
+    // Enforce minimum DMX interval (23ms per spec)
+    if(elapsed > DMX_MIN_INTERVAL_MS) {
+      this->send_break();
+      this->device_values_[0] = 0;
+      this->uart_->write_array(this->device_values_, this->max_chan_ + 1);
+      this->update_ = false;
+      this->last_update_ = now;
     }
-  }
-  if(update) {
-    this->uart_->flush();
-    this->send_break();
-    this->device_values_[0] = 0;
-    this->uart_->write_array(this->device_values_, this->max_chan_ + 1);
-    this->update_ = false;
-    this->last_update_ = millis();
   }
 }
 
@@ -33,8 +29,7 @@ void DMX512::dump_config() {
 }
 
 void DMX512::setup() {
-  for(int i = 0; i < DMX_MSG_SIZE; i++)
-    this->device_values_[i] = 0;
+  memset(this->device_values_, 0, DMX_MSG_SIZE);
   if(this->pin_enable_) {
     ESP_LOGD(TAG, "Enabling RS485 module");
     this->pin_enable_->setup();
@@ -50,7 +45,6 @@ void DMX512::set_channel_used(uint16_t channel) {
 }
 
 void DMX512::write_channel(uint16_t channel, uint8_t value) {
-  ESP_LOGD(TAG, "write_channel %d: %d", channel, value);
   this->device_values_[channel] = value;
   this->update_ = true;
 }
@@ -64,9 +58,10 @@ void DMX512Output::set_channel(uint16_t channel) {
 
 void DMX512Output::write_state(float state) {
   this->state = state;
-  uint16_t value = state * 0xffff;
+  // Fast conversion: add 0.5f before cast for proper rounding
+  const uint8_t value = static_cast<uint8_t>(state * 255.0f + 0.5f);
   if(this->universe_)
-    this->universe_->write_channel(this->channel_, (value >> 8));
+    this->universe_->write_channel(this->channel_, value);
 }
 
 }  // namespace dmx512

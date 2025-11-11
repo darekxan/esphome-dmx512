@@ -12,10 +12,7 @@ DMX512Output = dmx512_ns.class_('DMX512Output', output.FloatOutput, cg.Component
 CONF_UNIVERSE = 'universe'
 
 def validate_channel(channel):
-    if(channel >= 1 and channel <= 512):
-        return True
-    else:
-        return False
+    return 1 <= channel <= 512
 
 def _declare_type(value):
     if CORE.is_esp32:
