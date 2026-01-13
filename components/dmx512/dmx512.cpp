@@ -13,8 +13,14 @@ void DMX512::loop() {
   
   // Check if update needed: either data changed OR periodic update is due
   if(this->update_ || (elapsed > this->update_interval_ && this->periodic_update_)) {
-    // Enforce minimum DMX interval (23ms per spec)
-    if(elapsed > DMX_MIN_INTERVAL_MS) {
+    // Calculate required transmission time based on channel count
+    // 11 bits per byte at 250kbaud = 44us/byte
+    // Break (92us) + MAB (12us) = ~104us
+    // Add 2ms safety margin to ensure UART FIFO is completely empty and avoid cutting off the stop bits
+    // This dynamic calculation allows for faster updates with fewer channels while maintaining stability for full universes
+    const uint32_t min_interval = ((this->max_chan_ + 1) * 44) / 1000 + 2;
+
+    if (elapsed > min_interval) {
       this->send_break();
       this->device_values_[0] = 0;
       this->uart_->write_array(this->device_values_, this->max_chan_ + 1);
