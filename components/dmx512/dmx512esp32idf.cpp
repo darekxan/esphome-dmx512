@@ -4,6 +4,8 @@
 #include "esphome/core/log.h"
 #include <driver/uart.h>
 #include <freertos/FreeRTOS.h>
+#include <hal/uart_hal.h>
+#include <hal/uart_ll.h>
 
 namespace esphome {
 namespace dmx512 {
@@ -11,13 +13,22 @@ namespace dmx512 {
 static const char *TAG = "dmx512";
 
 void DMX512ESP32IDF::send_break() {
-  uart_set_break((uart_port_t) this->uart_idx_, this->break_len_);
+  uart_hal_context_t hal;
+  hal.dev = UART_LL_GET_HW(this->uart_idx_);
 
-  // `uart_set_break` is asynchronous; wait until the break has fully completed before
-  // applying the Mark-After-Break guard band so the TX pin stays attached to the UART
-  // matrix instead of floating via GPIO toggles.
-  uart_wait_tx_done((uart_port_t) this->uart_idx_, pdMS_TO_TICKS(5));
+  uint32_t baud = 0;
+  if (uart_get_baudrate(static_cast<uart_port_t>(this->uart_idx_), &baud) != ESP_OK || baud == 0) {
+    baud = 250000;  // fall back to typical DMX baud if the driver hasn't been configured yet
+  }
 
+  const uint64_t break_cycles = ((uint64_t) baud * this->break_len_) / 1'000'000ULL;
+  uint32_t break_symbols = static_cast<uint32_t>(break_cycles);
+  if (break_symbols == 0) {
+    break_symbols = 1;
+  }
+
+  uart_hal_tx_break(&hal, break_symbols);
+  uart_wait_tx_done(static_cast<uart_port_t>(this->uart_idx_), pdMS_TO_TICKS(5));
   delayMicroseconds(this->mab_len_);
 }
 
