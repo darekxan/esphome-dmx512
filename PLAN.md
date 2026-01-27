@@ -26,6 +26,8 @@
 - Modify [`dmx512::DMX512::setup()`](components/dmx512/dmx512.cpp:37) and the transmit path so `pin_enable_` goes high only during break+data
 - Lower `pin_enable_` immediately after `uart_wait_tx_done()` completes to let the bus idle high and reduce EMI sensitivity
 
+**Status:** Implemented. The enable GPIO is now configured low during setup and toggled high only for the duration of [`DMX512::loop()`](components/dmx512/dmx512.cpp:15) frame transmission, dropping low right after the TX drain wait to keep the RS-485 transceiver tri-stated between frames.
+
 ### 5. Optional safeguards (lowest likelihood)
 - Add counters for missed `uart_wait_tx_done` waits, RMT underruns, or skipped updates and expose via diagnostics
 - Provide a configuration knob for `update_interval_` so integrators can reduce refresh pressure when scenes are static

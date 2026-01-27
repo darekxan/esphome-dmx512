@@ -36,6 +36,10 @@ void DMX512::loop() {
     this->update_ = false;
   }
 
+  if (this->pin_enable_) {
+    this->pin_enable_->digital_write(true);
+  }
+
   this->send_break();
   this->uart_->write_array(this->tx_buffer_, frame_len);
 #ifdef USE_ESP_IDF
@@ -45,6 +49,11 @@ void DMX512::loop() {
 #else
   this->uart_->flush();
 #endif
+
+  if (this->pin_enable_) {
+    this->pin_enable_->digital_write(false);
+  }
+
   this->last_update_ = now;
 }
 
@@ -55,9 +64,9 @@ void DMX512::dump_config() {
 void DMX512::setup() {
   memset(this->device_values_, 0, DMX_MSG_SIZE);
   if(this->pin_enable_) {
-    ESP_LOGD(TAG, "Enabling RS485 module");
+    ESP_LOGD(TAG, "Configuring RS485 driver enable pin");
     this->pin_enable_->setup();
-    this->pin_enable_->digital_write(true);
+    this->pin_enable_->digital_write(false);
   }
 }
 
