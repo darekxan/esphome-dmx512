@@ -13,6 +13,8 @@
 - Keep the TX pin permanently attached to the UART matrix to avoid floating intervals
 - Optionally, migrate break+MAB timing to RMT for sub-microsecond jitter
 
+**Status:** Implemented by switching [`DMX512ESP32IDF::send_break()`](components/dmx512/dmx512esp32idf.cpp:11) over to the ESP-IDF HAL path (`uart_hal_tx_break`) with automatic baud-derived break symbol counts plus a TX-drain wait, keeping the UART pin muxed throughout break+MAB.
+
 ### 3. Reduce frame length jitter (medium likelihood)
 - Track the highest active channel dynamically in [`dmx512::DMX512::set_channel_used()`](components/dmx512/dmx512.cpp:46)
 - Recompute `max_chan_` when channels are removed or disabled, unless `force_full_frames_` is enabled
