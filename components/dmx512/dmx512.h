@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/output/float_output.h"
+#include <bitset>
 
 static const uint16_t UPDATE_INTERVAL_MS = 500;
 static const uint16_t DMX_MAX_CHANNEL = 512;
@@ -33,9 +34,9 @@ class DMX512 : public Component {
   
   void set_uart_tx_pin(InternalGPIOPin *tx_pin) { tx_pin_ = tx_pin; }
   
-  void set_channel_used(uint16_t channel);
+  void set_channel_used(uint16_t channel, bool used = true);
 
-  void set_force_full_frames(bool force) { force_full_frames_ = force; }
+  void set_force_full_frames(bool force);
 
   void set_periodic_update(bool update) { periodic_update_ = update; }
 
@@ -67,11 +68,14 @@ class DMX512 : public Component {
   bool force_full_frames_{false};
   uint32_t last_update_{0};
   GPIOPin *pin_enable_{nullptr};
+  std::bitset<DMX_MSG_SIZE> channel_active_{};
+
+  void recompute_max_channel_from_mask_();
 };
 
 class DMX512Output : public output::FloatOutput, public Component {
 public:
-  void set_universe(DMX512 *universe) { this->universe_ = universe; }
+  void set_universe(DMX512 *universe);
   void set_channel(uint16_t channel);
   void write_state(float state) override;
   float state;

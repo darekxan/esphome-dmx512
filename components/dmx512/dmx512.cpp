@@ -20,11 +20,12 @@ void DMX512::loop() {
   if (!needs_update)
     return;
 
-  const uint32_t min_interval = ((this->max_chan_ + 1) * 44) / 1000 + 2;
+  const uint16_t active_channels = this->force_full_frames_ ? DMX_MAX_CHANNEL : this->max_chan_;
+  const uint32_t min_interval = ((active_channels + 1) * 44) / 1000 + 2;
   if (elapsed <= min_interval)
     return;
 
-  size_t frame_len = this->max_chan_ + 1;
+  size_t frame_len = active_channels + 1;
   if (frame_len > DMX_MSG_SIZE)
     frame_len = DMX_MSG_SIZE;
 
@@ -60,22 +61,69 @@ void DMX512::setup() {
   }
 }
 
-void DMX512::set_channel_used(uint16_t channel) {
-  if(channel > this->max_chan_)
-    this->max_chan_ = channel;
-  if(this->force_full_frames_)
+void DMX512::set_channel_used(uint16_t channel, bool used) {
+  if (channel == 0 || channel > DMX_MAX_CHANNEL)
+    return;
+
+  this->channel_active_.set(channel, used);
+
+  if (used) {
+    if (channel > this->max_chan_)
+      this->max_chan_ = channel;
+    return;
+  }
+
+  if (channel == this->max_chan_) {
+    this->recompute_max_channel_from_mask_();
+  }
+}
+
+void DMX512::set_force_full_frames(bool force) {
+  this->force_full_frames_ = force;
+  if (force) {
     this->max_chan_ = DMX_MAX_CHANNEL;
+    return;
+  }
+
+  this->recompute_max_channel_from_mask_();
 }
 
 void DMX512::write_channel(uint16_t channel, uint8_t value) {
+  if (channel > DMX_MAX_CHANNEL)
+    return;
+
   this->device_values_[channel] = value;
   this->update_ = true;
+  this->set_channel_used(channel, value != 0);
+}
+
+void DMX512::recompute_max_channel_from_mask_() {
+  if (this->force_full_frames_) {
+    this->max_chan_ = DMX_MAX_CHANNEL;
+    return;
+  }
+
+  for (int ch = DMX_MAX_CHANNEL; ch >= 1; --ch) {
+    if (this->channel_active_.test(ch)) {
+      this->max_chan_ = static_cast<uint16_t>(ch);
+      return;
+    }
+  }
+
+  this->max_chan_ = 0;
 }
 
 void DMX512Output::set_channel(uint16_t channel) {
+  if (this->channel_ == channel)
+    return;
+
+  if (this->universe_ && this->channel_ != 0) {
+    this->universe_->set_channel_used(this->channel_, false);
+  }
+
   this->channel_ = channel;
   if(this->universe_) {
-    this->universe_->set_channel_used(channel);
+    this->universe_->set_channel_used(channel, true);
   }
 }
 
@@ -85,6 +133,29 @@ void DMX512Output::write_state(float state) {
   const uint8_t value = static_cast<uint8_t>(state * 255.0f + 0.5f);
   if(this->universe_)
     this->universe_->write_channel(this->channel_, value);
+}
+
+void DMX512Output::set_universe(DMX512 *universe) {
+  if (universe == nullptr) {
+    if (this->universe_ && this->channel_ != 0) {
+      this->universe_->set_channel_used(this->channel_, false);
+    }
+    this->universe_ = nullptr;
+    return;
+  }
+
+  if (this->universe_ == universe)
+    return;
+
+  if (this->universe_ && this->channel_ != 0) {
+    this->universe_->set_channel_used(this->channel_, false);
+  }
+
+  this->universe_ = universe;
+
+  if (this->universe_ && this->channel_ != 0) {
+    this->universe_->set_channel_used(this->channel_, true);
+  }
 }
 
 }  // namespace dmx512

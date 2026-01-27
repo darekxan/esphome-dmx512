@@ -20,6 +20,8 @@
 - Recompute `max_chan_` when channels are removed or disabled, unless `force_full_frames_` is enabled
 - Use the trimmed channel count when calculating `min_interval` to enlarge idle margin
 
+**Status:** Implemented. Active DMX channels are tracked via a per-slot bitset, `max_chan_` is recomputed when channels go idle or universes are detached, and the transmit interval now uses the trimmed channel count unless `force_full_frames_` is set.
+
 ### 4. Pulse RS-485 driver enable per frame (medium-to-low likelihood)
 - Modify [`dmx512::DMX512::setup()`](components/dmx512/dmx512.cpp:37) and the transmit path so `pin_enable_` goes high only during break+data
 - Lower `pin_enable_` immediately after `uart_wait_tx_done()` completes to let the bus idle high and reduce EMI sensitivity
