@@ -31,3 +31,5 @@
 ### 5. Optional safeguards (lowest likelihood)
 - Add counters for missed `uart_wait_tx_done` waits, RMT underruns, or skipped updates and expose via diagnostics
 - Provide a configuration knob for `update_interval_` so integrators can reduce refresh pressure when scenes are static
+
+**Status:** Implemented. The core [`DMX512`](components/dmx512/dmx512.cpp:15) scheduler now tracks skipped frames and transmit wait failures, while the ESP-IDF backend increments an underrun counter whenever `uart_wait_tx_done` times out during break generation. All counters are emitted in `dump_config()`, logged autonomously every 60 seconds at runtime, and the existing `update_interval` knob now clamps inputs to the DMX-safe minimum with refreshed README guidance.

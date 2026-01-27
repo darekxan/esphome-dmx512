@@ -17,13 +17,16 @@ void DMX512::loop() {
   const uint32_t elapsed = now - this->last_update_;
 
   const bool needs_update = this->update_ || (elapsed > this->update_interval_ && this->periodic_update_);
-  if (!needs_update)
+  if (!needs_update) {
     return;
+  }
 
   const uint16_t active_channels = this->force_full_frames_ ? DMX_MAX_CHANNEL : this->max_chan_;
   const uint32_t min_interval = ((active_channels + 1) * 44) / 1000 + 2;
-  if (elapsed <= min_interval)
+  if (elapsed <= min_interval) {
+    this->skipped_updates_++;
     return;
+  }
 
   size_t frame_len = active_channels + 1;
   if (frame_len > DMX_MSG_SIZE)
@@ -45,7 +48,9 @@ void DMX512::loop() {
 #ifdef USE_ESP_IDF
   const uint32_t frame_time_us = frame_len * 44 + this->break_len_ + this->mab_len_;
   const TickType_t wait_ticks = pdMS_TO_TICKS((frame_time_us / 1000) + 2);
-  uart_wait_tx_done(static_cast<uart_port_t>(this->uart_idx_), wait_ticks);
+  if (uart_wait_tx_done(static_cast<uart_port_t>(this->uart_idx_), wait_ticks) != ESP_OK) {
+    this->missed_tx_waits_++;
+  }
 #else
   this->uart_->flush();
 #endif
@@ -55,6 +60,17 @@ void DMX512::loop() {
   }
 
   this->last_update_ = now;
+
+  const uint32_t diag_elapsed = now - this->last_diag_log_;
+  const bool diag_time_reached = diag_elapsed >= this->diag_log_interval_ms_;
+  const bool diag_after_start_delay = now > DMX_DIAG_LOG_START_DELAY_MS;
+  if (diag_time_reached && diag_after_start_delay) {
+    this->last_diag_log_ = now;
+    ESP_LOGD(TAG, "DMX diagnostics: missed waits=%u skipped frames=%u rmt underruns=%u",
+             static_cast<unsigned>(this->missed_tx_waits_),
+             static_cast<unsigned>(this->skipped_updates_),
+             static_cast<unsigned>(this->rmt_underruns_));
+  }
 }
 
 void DMX512::dump_config() {
@@ -68,6 +84,7 @@ void DMX512::setup() {
     this->pin_enable_->setup();
     this->pin_enable_->digital_write(false);
   }
+  this->last_diag_log_ = millis();
 }
 
 void DMX512::set_channel_used(uint16_t channel, bool used) {
@@ -120,6 +137,10 @@ void DMX512::recompute_max_channel_from_mask_() {
   }
 
   this->max_chan_ = 0;
+}
+
+void DMX512::report_rmt_underrun() {
+  this->rmt_underruns_++;
 }
 
 void DMX512Output::set_channel(uint16_t channel) {

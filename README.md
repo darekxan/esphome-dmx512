@@ -48,7 +48,8 @@ dmx512:
   * `force_full_frames`: If set to true, the full 513-byte frame is always sent. Otherwise, only the configured channels are transmitted.
   * `custom_mab_len`: Set a custom mark-after-break length (in uS, default 12)
   * `custom_break_len`: Set a custom break length (in uS, default 92)
-  * `update_interval`: Specify a custom update interval, i.e. the minimum time between resending the current values (in ms, default 500). This allows the customisation of the refresh rate, some fixtures require rates higher than 2Hz (=500ms refresh rate).
+  * `update_interval`: Specify a custom update interval, i.e. the minimum time between resending the current values (in ms, default 500). Values below the DMX frame time are automatically clamped to ~23ms so the bus never overruns.
+  * Diagnostics: Boot logs list skipped updates, `uart_wait_tx_done` timeouts, and (on ESP-IDF) RMT underruns so you can spot timing pressure without enabling verbose logging. While running, the component logs those counters every 60 seconds so you can review them without rebooting.
 
 Outputs point to channels in the DMX universe, from 1 to 512. 
 
@@ -130,4 +131,3 @@ switch:
     number: GPIO13
     inverted: true
 ```
-

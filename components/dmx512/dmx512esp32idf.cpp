@@ -28,7 +28,9 @@ void DMX512ESP32IDF::send_break() {
   }
 
   uart_hal_tx_break(&hal, break_symbols);
-  uart_wait_tx_done(static_cast<uart_port_t>(this->uart_idx_), pdMS_TO_TICKS(5));
+  if (uart_wait_tx_done(static_cast<uart_port_t>(this->uart_idx_), pdMS_TO_TICKS(5)) != ESP_OK) {
+    this->report_rmt_underrun();
+  }
   delayMicroseconds(this->mab_len_);
 }
 

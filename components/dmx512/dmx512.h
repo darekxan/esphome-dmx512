@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <bitset>
+
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/output/float_output.h"
-#include <bitset>
 
 static const uint16_t UPDATE_INTERVAL_MS = 500;
 static const uint16_t DMX_MAX_CHANNEL = 512;
@@ -11,6 +13,8 @@ static const uint16_t DMX_MSG_SIZE = DMX_MAX_CHANNEL + 1;
 static const int DMX_BREAK_LEN = 92;
 static const int DMX_MAB_LEN = 12;
 static const int DMX_MIN_INTERVAL_MS = 23;
+static const uint32_t DMX_DIAG_LOG_INTERVAL_MS = 60 * 1000;
+static const uint32_t DMX_DIAG_LOG_START_DELAY_MS = 5 * 1000;
 
 namespace esphome {
 namespace dmx512 {
@@ -44,7 +48,11 @@ class DMX512 : public Component {
 
   void set_break_len(int len) { break_len_ = len; }
 
-  void set_update_interval(int intvl) { update_interval_ = intvl; }
+  void set_update_interval(int intvl) {
+    this->update_interval_ = std::max(intvl, DMX_MIN_INTERVAL_MS);
+  }
+
+  int get_update_interval() const { return this->update_interval_; }
 
   virtual void set_uart_num(int num) = 0;
 
@@ -69,8 +77,14 @@ class DMX512 : public Component {
   uint32_t last_update_{0};
   GPIOPin *pin_enable_{nullptr};
   std::bitset<DMX_MSG_SIZE> channel_active_{};
+  volatile uint32_t missed_tx_waits_{0};
+  volatile uint32_t skipped_updates_{0};
+  volatile uint32_t rmt_underruns_{0};
+  uint32_t last_diag_log_{0};
+  uint32_t diag_log_interval_ms_{DMX_DIAG_LOG_INTERVAL_MS};
 
   void recompute_max_channel_from_mask_();
+  void report_rmt_underrun();
 };
 
 class DMX512Output : public output::FloatOutput, public Component {
