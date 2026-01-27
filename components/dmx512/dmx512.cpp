@@ -1,5 +1,11 @@
 #include "dmx512.h"
 #include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
+#include <cstring>
+#ifdef USE_ESP_IDF
+#include <driver/uart.h>
+#include <freertos/FreeRTOS.h>
+#endif
 
 namespace esphome {
 namespace dmx512 {
@@ -7,27 +13,38 @@ namespace dmx512 {
 static const char *TAG = "dmx512";
 
 void DMX512::loop() {
-  // Cache millis() to avoid multiple system calls
   const uint32_t now = millis();
   const uint32_t elapsed = now - this->last_update_;
-  
-  // Check if update needed: either data changed OR periodic update is due
-  if(this->update_ || (elapsed > this->update_interval_ && this->periodic_update_)) {
-    // Calculate required transmission time based on channel count
-    // 11 bits per byte at 250kbaud = 44us/byte
-    // Break (92us) + MAB (12us) = ~104us
-    // Add 2ms safety margin to ensure UART FIFO is completely empty and avoid cutting off the stop bits
-    // This dynamic calculation allows for faster updates with fewer channels while maintaining stability for full universes
-    const uint32_t min_interval = ((this->max_chan_ + 1) * 44) / 1000 + 2;
 
-    if (elapsed > min_interval) {
-      this->send_break();
-      this->device_values_[0] = 0;
-      this->uart_->write_array(this->device_values_, this->max_chan_ + 1);
-      this->update_ = false;
-      this->last_update_ = now;
-    }
+  const bool needs_update = this->update_ || (elapsed > this->update_interval_ && this->periodic_update_);
+  if (!needs_update)
+    return;
+
+  const uint32_t min_interval = ((this->max_chan_ + 1) * 44) / 1000 + 2;
+  if (elapsed <= min_interval)
+    return;
+
+  size_t frame_len = this->max_chan_ + 1;
+  if (frame_len > DMX_MSG_SIZE)
+    frame_len = DMX_MSG_SIZE;
+
+  {
+    InterruptLock lock;
+    this->device_values_[0] = 0;
+    memcpy(this->tx_buffer_, this->device_values_, frame_len);
+    this->update_ = false;
   }
+
+  this->send_break();
+  this->uart_->write_array(this->tx_buffer_, frame_len);
+#ifdef USE_ESP_IDF
+  const uint32_t frame_time_us = frame_len * 44 + this->break_len_ + this->mab_len_;
+  const TickType_t wait_ticks = pdMS_TO_TICKS((frame_time_us / 1000) + 2);
+  uart_wait_tx_done(static_cast<uart_port_t>(this->uart_idx_), wait_ticks);
+#else
+  this->uart_->flush();
+#endif
+  this->last_update_ = now;
 }
 
 void DMX512::dump_config() {

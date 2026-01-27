@@ -60,8 +60,9 @@ class DMX512 : public Component {
   int update_interval_{UPDATE_INTERVAL_MS};
   int mab_len_{DMX_MAB_LEN};
   int break_len_{DMX_BREAK_LEN};
-  uint16_t max_chan_{0};
-  bool update_{true};
+  volatile uint16_t max_chan_{0};
+  volatile bool update_{true};
+  uint8_t tx_buffer_[DMX_MSG_SIZE];
   bool periodic_update_{true};
   bool force_full_frames_{false};
   uint32_t last_update_{0};
