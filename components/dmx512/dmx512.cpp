@@ -80,11 +80,24 @@ void DMX512::loop() {
   const bool diag_after_start_delay = now > DMX_DIAG_LOG_START_DELAY_MS;
   if (diag_time_reached && diag_after_start_delay) {
     this->last_diag_log_ = now;
-    ESP_LOGD(TAG, "DMX diagnostics: missed waits=%u skipped frames=%u coalesced=%u rmt underruns=%u",
+    ESP_LOGD(TAG,
+             "DMX diagnostics: missed waits=%u skipped frames=%u coalesced=%u rmt underruns=%u "
+             "frame_len=%u max_chan=%u active=%u",
              static_cast<unsigned>(this->missed_tx_waits_),
              static_cast<unsigned>(this->skipped_updates_),
              static_cast<unsigned>(this->coalesced_updates_),
-             static_cast<unsigned>(this->rmt_underruns_));
+             static_cast<unsigned>(this->rmt_underruns_),
+             static_cast<unsigned>(frame_len),
+             static_cast<unsigned>(this->max_chan_),
+             static_cast<unsigned>(active_channels));
+#ifdef USE_ESP_IDF
+    uint32_t baud = 0;
+    if (uart_get_baudrate(static_cast<uart_port_t>(this->uart_idx_), &baud) == ESP_OK) {
+      ESP_LOGD(TAG, "DMX UART: baud=%u uart_idx=%d", static_cast<unsigned>(baud), this->uart_idx_);
+    } else {
+      ESP_LOGD(TAG, "DMX UART: baud=unknown uart_idx=%d", this->uart_idx_);
+    }
+#endif
   }
 }
 
