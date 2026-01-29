@@ -79,6 +79,7 @@ class DMX512 : public Component {
   std::bitset<DMX_MSG_SIZE> channel_active_{};
   volatile uint32_t missed_tx_waits_{0};
   volatile uint32_t skipped_updates_{0};
+  volatile uint32_t coalesced_updates_{0};
   volatile uint32_t rmt_underruns_{0};
   uint32_t last_diag_log_{0};
   uint32_t diag_log_interval_ms_{DMX_DIAG_LOG_INTERVAL_MS};

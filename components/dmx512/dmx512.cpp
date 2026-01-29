@@ -23,18 +23,24 @@ void DMX512::loop() {
 
   const uint16_t active_channels = this->force_full_frames_ ? DMX_MAX_CHANNEL : this->max_chan_;
   const uint32_t min_interval = ((active_channels + 1) * 44) / 1000 + 2;
-  if (elapsed <= min_interval) {
-    this->skipped_updates_++;
+  if (elapsed < min_interval) {
+    const bool coalesced = this->update_;
+    if (coalesced) {
+      this->coalesced_updates_++;
+    } else {
+      this->skipped_updates_++;
+    }
     const uint32_t skip_log_elapsed = now - this->last_skip_log_;
     if (skip_log_elapsed >= this->diag_log_interval_ms_ && now > DMX_DIAG_LOG_START_DELAY_MS) {
       this->last_skip_log_ = now;
       ESP_LOGD(TAG,
-               "DMX skip: elapsed=%ums min_interval=%ums update=%d periodic=%d max_chan=%u active=%u "
-               "force_full=%d update_interval=%d writes_since_send=%u",
+               "DMX skip: elapsed=%ums min_interval=%ums update=%d periodic=%d coalesced=%d max_chan=%u "
+               "active=%u force_full=%d update_interval=%d writes_since_send=%u",
                static_cast<unsigned>(elapsed),
                static_cast<unsigned>(min_interval),
                static_cast<int>(this->update_),
                static_cast<int>(this->periodic_update_),
+               static_cast<int>(coalesced),
                static_cast<unsigned>(this->max_chan_),
                static_cast<unsigned>(active_channels),
                static_cast<int>(this->force_full_frames_),
@@ -74,9 +80,10 @@ void DMX512::loop() {
   const bool diag_after_start_delay = now > DMX_DIAG_LOG_START_DELAY_MS;
   if (diag_time_reached && diag_after_start_delay) {
     this->last_diag_log_ = now;
-    ESP_LOGD(TAG, "DMX diagnostics: missed waits=%u skipped frames=%u rmt underruns=%u",
+    ESP_LOGD(TAG, "DMX diagnostics: missed waits=%u skipped frames=%u coalesced=%u rmt underruns=%u",
              static_cast<unsigned>(this->missed_tx_waits_),
              static_cast<unsigned>(this->skipped_updates_),
+             static_cast<unsigned>(this->coalesced_updates_),
              static_cast<unsigned>(this->rmt_underruns_));
   }
 }
