@@ -3,6 +3,8 @@
 #include "dmx512esp32idf.h"
 #include "esphome/core/log.h"
 #include <driver/uart.h>
+#include <hal/uart_hal.h>
+#include <hal/uart_ll.h>
 
 namespace esphome {
 namespace dmx512 {
