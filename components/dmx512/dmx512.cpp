@@ -25,6 +25,22 @@ void DMX512::loop() {
   const uint32_t min_interval = ((active_channels + 1) * 44) / 1000 + 2;
   if (elapsed <= min_interval) {
     this->skipped_updates_++;
+    const uint32_t skip_log_elapsed = now - this->last_skip_log_;
+    if (skip_log_elapsed >= this->diag_log_interval_ms_ && now > DMX_DIAG_LOG_START_DELAY_MS) {
+      this->last_skip_log_ = now;
+      ESP_LOGD(TAG,
+               "DMX skip: elapsed=%ums min_interval=%ums update=%d periodic=%d max_chan=%u active=%u "
+               "force_full=%d update_interval=%d writes_since_send=%u",
+               static_cast<unsigned>(elapsed),
+               static_cast<unsigned>(min_interval),
+               static_cast<int>(this->update_),
+               static_cast<int>(this->periodic_update_),
+               static_cast<unsigned>(this->max_chan_),
+               static_cast<unsigned>(active_channels),
+               static_cast<int>(this->force_full_frames_),
+               static_cast<int>(this->update_interval_),
+               static_cast<unsigned>(this->writes_since_send_));
+    }
     return;
   }
 
@@ -51,6 +67,7 @@ void DMX512::loop() {
   this->uart_->flush();
 #endif
   this->last_update_ = now;
+  this->writes_since_send_ = 0;
 
   const uint32_t diag_elapsed = now - this->last_diag_log_;
   const bool diag_time_reached = diag_elapsed >= this->diag_log_interval_ms_;
@@ -88,6 +105,7 @@ void DMX512::set_channel_used(uint16_t channel) {
 void DMX512::write_channel(uint16_t channel, uint8_t value) {
   this->device_values_[channel] = value;
   this->update_ = true;
+  this->writes_since_send_++;
 }
 
 void DMX512::report_rmt_underrun() {

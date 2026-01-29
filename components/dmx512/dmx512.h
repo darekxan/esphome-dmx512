@@ -82,6 +82,8 @@ class DMX512 : public Component {
   volatile uint32_t rmt_underruns_{0};
   uint32_t last_diag_log_{0};
   uint32_t diag_log_interval_ms_{DMX_DIAG_LOG_INTERVAL_MS};
+  uint32_t writes_since_send_{0};
+  uint32_t last_skip_log_{0};
 
   void recompute_max_channel_from_mask_();
   void report_rmt_underrun();
