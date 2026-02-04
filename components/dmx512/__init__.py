@@ -33,7 +33,7 @@ def _declare_type(value):
     if CORE.is_esp32:
         if CORE.using_arduino:
             return cv.declare_id(DMX512ESP32)(value)
-        elif CORE.using_esp_idf:
+        else:
             return cv.declare_id(DMX512ESP32IDF)(value)
     elif CORE.is_esp8266:
         return cv.declare_id(DMX512ESP8266)(value)
